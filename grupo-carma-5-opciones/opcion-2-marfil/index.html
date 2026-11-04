@@ -287,12 +287,12 @@ body[data-inclinar] .tarjeta::after{
             </div>
             <div class="burbujas">
               <button type="button" class="burbuja" data-elegir="es">
-                <span class="burbuja-esfera"><img src="https://flagcdn.com/mx.svg" alt=""></span>
+                <span class="burbuja-esfera"><img src="/PresentacionGrupoCarma/banderas/iconMexico.webp" alt=""></span>
                 <span class="burbuja-nombre">Español</span>
                 <span class="burbuja-pais">México</span>
               </button>
               <button type="button" class="burbuja" data-elegir="en">
-                <span class="burbuja-esfera"><img src="https://flagcdn.com/ca.svg" alt=""></span>
+                <span class="burbuja-esfera"><img src="/PresentacionGrupoCarma/banderas/iconCanada.webp" alt=""></span>
                 <span class="burbuja-nombre">English</span>
                 <span class="burbuja-pais">Canada</span>
               </button>
@@ -326,320 +326,58 @@ body[data-inclinar] .tarjeta::after{
 
 
 <script>
-/* ================= DATOS (edita aquí) ================= */
-const redes = { whatsapp:"#", facebook:"#", instagram:"#", linkedin:"#" };
+/* ---------- Deslizar con el dedo (por si no hay giroscopio o falla) ---------- */
+let xInicialMovil = 0;
+let yInicialMovil = 0;
 
-const textos = {
-  es: {
-    pais:"México · Español", volver:"Volver",
-    lema:"Su seguridad, nuestro compromiso",
-    dir:"Dirección",  dirVal:"Av. Reforma #123, Puebla, México",
-    tel:"Teléfonos",  telVal:[["222 123 4567","+522221234567"],["222 765 4321","+522227654321"]],
-    correo:"Correo",  correoVal:"contacto@grupocarma.com",
-    horario:"Horario", horarioVal:"Lun - Vie 9:00 - 18:00"
-  },
-  en: {
-    pais:"Canada · English", volver:"Back",
-    lema:"Your security, our commitment",
-    dir:"Address",   dirVal:"123 Reforma Ave, Puebla, Mexico",
-    tel:"Phone",     telVal:[["+52 222 123 4567","+522221234567"]],
-    correo:"Email",  correoVal:"contacto@grupocarma.com",
-    horario:"Hours", horarioVal:"Mon - Fri 9:00 AM - 6:00 PM"
+// Escuchar cuando el usuario pone el dedo en la pantalla
+inclina.addEventListener('touchstart', (evento) => {
+  xInicialMovil = evento.touches[0].clientX;
+  yInicialMovil = evento.touches[0].clientY;
+}, { passive: true });
+
+// Determinar la acción cuando levanta el dedo
+inclina.addEventListener('touchend', (evento) => {
+  if (!xInicialMovil || !yInicialMovil) return;
+
+  const xFinalMovil = evento.changedTouches[0].clientX;
+  const yFinalMovil = evento.changedTouches[0].clientY;
+
+  const diferenciaX = xInicialMovil - xFinalMovil;
+  const diferenciaY = yInicialMovil - yFinalMovil;
+
+  // Umbral mínimo en píxeles para que cuente como un deslizamiento intencional
+  const UMBRAL_SWIPE = 50;
+
+  // Nos aseguramos de que el movimiento sea predominantemente horizontal y supere el umbral
+  if (Math.abs(diferenciaX) > Math.abs(diferenciaY) && Math.abs(diferenciaX) > UMBRAL_SWIPE) {
+    if (estado === 'portada') {
+      // Deslizar a la izquierda -> voltea al frente (1), derecha -> atrás (-1)
+      voltear(diferenciaX > 0 ? 1 : -1);
+    } else if (estado === 'contacto') {
+      // Cambia de idioma haciendo el giro completo de la tarjeta
+      if (diferenciaX > 0) {
+        cambiarIdiomaMovil('en', 1);  // Deslizar izquierda pasa a Inglés
+      } else {
+        cambiarIdiomaMovil('es', -1); // Deslizar derecha pasa a Español
+      }
+    }
   }
-};
 
-/* ================= RELLENO ================= */
-const clonar = id => document.getElementById(id).content.cloneNode(true);
+  // Limpiar valores para el siguiente gesto
+  xInicialMovil = 0;
+  yInicialMovil = 0;
+}, { passive: true });
 
-function llenar(raiz, t){
-  raiz.querySelectorAll('[data-t]').forEach(el => el.textContent = t[el.dataset.t]);
-  raiz.querySelectorAll('[data-tel]').forEach(el => {
-    el.textContent = '';
-    t.telVal.forEach(([texto, numero], i) => {
-      if(i) el.append(' / ');
-      const a = document.createElement('a');
-      a.href = 'tel:' + numero;
-      a.textContent = texto;
-      el.append(a);
-    });
-  });
-  raiz.querySelectorAll('[data-correo]').forEach(el => {
-    el.textContent = t.correoVal;
-    el.href = 'mailto:' + t.correoVal;
-  });
-}
-
-function ponerRedes(raiz){
-  raiz.querySelectorAll('[data-redes]').forEach(el => {
-    el.append(clonar('tpl-redes'));
-    el.querySelectorAll('[data-red]').forEach(a => {
-      a.href = redes[a.dataset.red];
-      if(a.getAttribute('href') !== '#'){ a.target = '_blank'; a.rel = 'noopener'; }
-    });
-  });
-}
-
-const sinMovimiento = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-/* ================= PC ================= */
-const tarjeta = document.getElementById('tarjeta');
-document.getElementById('d-filas').append(clonar('tpl-filas'));
-ponerRedes(tarjeta);
-
-function marcarIdioma(idioma){
-  tarjeta.querySelectorAll('[data-idioma]').forEach(b => {
-    b.setAttribute('aria-pressed', b.dataset.idioma === idioma);
-  });
-}
-function pintarDesktop(idioma){
-  const t = textos[idioma];
-  llenar(tarjeta, t);
-  document.getElementById('d-lema').textContent = t.lema;
-  document.documentElement.lang = idioma;
-  marcarIdioma(idioma);
-}
-
-let idiomaDesktop = 'es', tCambio;
-function cambiarIdiomaDesktop(idioma){
-  if(idioma === idiomaDesktop) return;
-  idiomaDesktop = idioma;
-  clearTimeout(tCambio);
-  tarjeta.classList.add('cambiando');
-  marcarIdioma(idioma);
-  tCambio = setTimeout(() => {
-    pintarDesktop(idioma);
-    tarjeta.classList.remove('cambiando');
-  }, sinMovimiento ? 0 : 180);
-}
-tarjeta.querySelectorAll('[data-idioma]').forEach(b => {
-  b.addEventListener('click', () => cambiarIdiomaDesktop(b.dataset.idioma));
-});
-pintarDesktop('es');
-
-/* Inclinación sutil de la tarjeta al mover el ratón */
-if(document.body.dataset.inclinar !== undefined && !sinMovimiento &&
-   window.matchMedia('(hover:hover) and (pointer:fine)').matches){
-  tarjeta.addEventListener('pointermove', e => {
-    const r = tarjeta.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-    tarjeta.style.setProperty('--rx', ((.5 - y) * 3).toFixed(2) + 'deg');
-    tarjeta.style.setProperty('--ry', ((x - .5) * 3).toFixed(2) + 'deg');
-    tarjeta.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
-    tarjeta.style.setProperty('--my', (y * 100).toFixed(1) + '%');
-  });
-  tarjeta.addEventListener('pointerleave', () => {
-    tarjeta.style.setProperty('--rx', '0deg');
-    tarjeta.style.setProperty('--ry', '0deg');
-  });
-}
-
-/* ================= MÓVIL =================
-   La tarjeta sigue la inclinación del teléfono.
-   Anverso -> (inclinar) -> se voltea y aparecen las burbujas -> (tocar) -> contacto.
-   En el contacto, inclinar a la izquierda = español, a la derecha = inglés. */
-const UMBRAL = 30;   // grados de inclinación para voltear o cambiar de idioma
-const CENTRO = 12;   // grados para considerar el celular "derecho"
-const CERCA  = 12;   // grados para resaltar la burbuja de ese lado
-
-const inclina = document.getElementById('inclina');
-const carta = document.getElementById('carta');
-const portada = document.getElementById('portada');
-const dorso = document.getElementById('dorso');
-const selector = document.getElementById('selector');
-const contacto = document.getElementById('contacto');
-const burbujas = {};
-document.querySelectorAll('[data-elegir]').forEach(b => burbujas[b.dataset.elegir] = b);
-
-let estado = 'portada';       // portada | selector | contacto
-let sentido = 1;              // hacia qué lado se volteó la tarjeta
-let idiomaMovil = null;
-let esperarCentro = false;    // espera a que el celular se enderece antes de reaccionar
-let cambiando = false;
-
-document.getElementById('m-filas').append(clonar('tpl-filas'));
-ponerRedes(contacto);
-
-const anguloBase = () => estado === 'portada' ? 0 : 180 * sentido;
-
-function aplicar(){
-  carta.style.transform = `rotateY(${anguloBase()}deg)`;
-  portada.inert = estado !== 'portada';
-  selector.inert = estado !== 'selector';
-  contacto.inert = estado !== 'contacto';
-  selector.classList.toggle('visible', estado === 'selector');
-  contacto.classList.toggle('visible', estado === 'contacto');
-  pintarPista();
-}
-
-function vibrar(){ if(navigator.vibrate) navigator.vibrate(30); }
-
-function voltear(nuevoSentido = 1){
-  sentido = nuevoSentido;
-  estado = 'selector';
-  aplicar();
-  vibrar();
-}
-
-function aPortada(){
-  esperarCentro = true;
-  estado = 'portada';
-  aplicar();
-  marcarCerca(null);
-}
-
-function elegir(idioma){
-  idiomaMovil = idioma;
-  llenar(contacto, textos[idioma]);
-  contacto.lang = idioma;
-  esperarCentro = true;   // que la inclinación actual no cambie el idioma recién elegido
-  estado = 'contacto';
-  aplicar();
-  marcarCerca(null);
-}
-
-/* Cambia de idioma dando la vuelta completa a la tarjeta: el texto se
-   sustituye cuando la tarjeta está de canto y no se ve */
-function cambiarIdiomaMovil(idioma, giro){
-  if(idioma === idiomaMovil || cambiando) return;
-  vibrar();
-  if(sinMovimiento){ elegir(idioma); esperarCentro = false; return; }
-  cambiando = true;
-  const base = anguloBase();
-  const paso = (de, a, easing, ms) => carta.animate(
-    [{ transform:`rotateY(${de}deg)` }, { transform:`rotateY(${a}deg)` }],
-    { duration:ms, easing }
-  );
-  paso(base, base + 90 * giro, 'ease-in', 240).onfinish = () => {
-    idiomaMovil = idioma;
-    llenar(contacto, textos[idioma]);
-    contacto.lang = idioma;
-    paso(base - 90 * giro, base, 'cubic-bezier(.2,.8,.2,1)', 420).onfinish = () => { cambiando = false; };
-  };
-}
-
-function marcarCerca(idioma){
-  Object.entries(burbujas).forEach(([k, b]) => b.classList.toggle('cerca', k === idioma));
-}
-
-Object.values(burbujas).forEach(b => b.addEventListener('click', () => elegir(b.dataset.elegir)));
-document.getElementById('a-portada').addEventListener('click', aPortada);
-document.getElementById('c-volver').addEventListener('click', () => {
-  estado = 'selector';
-  aplicar();
+// Respaldo de accesibilidad: Si el giroscopio no va, permitir tocar la portada para voltearla
+portada.addEventListener('click', () => {
+  if (estado === 'portada') voltear(1);
 });
 
-/* ---------- Texto de ayuda bajo la tarjeta ---------- */
-const pista = document.getElementById('pista');
-let giroActivo = false;      // ya se recibieron datos del giroscopio
-let sinGiro = false;         // el dispositivo no los entrega
-let faltaPermiso = false;    // iPhone: falta tocar para pedir permiso
+/* ---------- Inicialización de la interfaz ---------- */
+pintarPista();
+</script>
 
-function pintarPista(){
-  let txt;
-  if(estado === 'selector'){
-    txt = 'Toca una bandera · Tap a flag';
-  }else if(estado === 'contacto'){
-    txt = giroActivo ? 'Inclina para cambiar de idioma · Tilt to switch'
-                     : 'Desliza para cambiar de idioma · Swipe to switch';
-  }else if(faltaPermiso){
-    txt = 'Toca aquí para activar el giroscopio';
-  }else{
-    txt = sinGiro ? 'Desliza o toca para voltear la tarjeta'
-                  : 'Inclina tu teléfono para voltear la tarjeta';
-  }
-  document.getElementById('pista-txt').textContent = txt;
-}
-
-/* ---------- Deslizar con el dedo (por si no hay giroscopio) ---------- */
-let x0 = null, y0 = null;
-const escena = document.getElementById('escena');
-escena.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, {passive:true});
-escena.addEventListener('touchend', e => {
-  if(x0 === null) return;
-  const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
-  x0 = null;
-  if(Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;   // no fue un deslizamiento horizontal
-  const haciaDerecha = dx > 0;
-  if(estado === 'portada')       voltear(haciaDerecha ? 1 : -1);
-  else if(estado === 'selector') aPortada();
-  else cambiarIdiomaMovil(haciaDerecha ? 'es' : 'en', haciaDerecha ? 1 : -1);
-}, {passive:true});
-
-/* ---------- Giroscopio ---------- */
-const limitar = (v, m) => Math.max(-m, Math.min(m, v));
-
-function alInclinar(e){
-  if(e.gamma === null) return;
-  if(!giroActivo){
-    giroActivo = true;
-    faltaPermiso = false;
-    inclina.classList.remove('sin-giro');
-    pintarPista();
-  }
-  const g = e.gamma; // izquierda = negativo, derecha = positivo
-  const b = e.beta === null ? 45 : e.beta;
-
-  // La tarjeta sigue la mano en todo momento
-  if(!sinMovimiento){
-    const ry = limitar(g, 30) * .45, rx = limitar(b - 45, 30) * -.35;
-    inclina.style.transform = `rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg)`;
-    inclina.style.setProperty('--bx', (50 + limitar(g, 30) * 1.5).toFixed(0) + '%');
-    inclina.style.setProperty('--by', (50 + limitar(b - 45, 30) * 1.5).toFixed(0) + '%');
-  }
-
-  if(esperarCentro){
-    if(Math.abs(g) < CENTRO) esperarCentro = false;
-    return;
-  }
-  if(estado === 'portada'){
-    if(g < -UMBRAL)      voltear(1);
-    else if(g > UMBRAL)  voltear(-1);
-  }else if(estado === 'selector'){
-    marcarCerca(g < -CERCA ? 'es' : g > CERCA ? 'en' : null);
-  }else{
-    if(g < -UMBRAL)      cambiarIdiomaMovil('es', 1);
-    else if(g > UMBRAL)  cambiarIdiomaMovil('en', -1);
-  }
-}
-
-const esMovil = window.matchMedia('(max-width:768px)').matches;
-const pideIOS = typeof DeviceOrientationEvent !== 'undefined' &&
-                typeof DeviceOrientationEvent.requestPermission === 'function';
-let tPermiso = 0;
-
-pista.addEventListener('click', () => {
-  if(estado !== 'portada') return;
-  if(Date.now() - tPermiso < 800) return;   // este toque solo pedía el permiso
-  voltear(1);
-});
-
-aplicar();
-if(esMovil){
-  window.addEventListener('deviceorientation', alInclinar);
-
-  if(pideIOS){
-    // iPhone: Apple solo entrega datos tras un toque, así que el permiso
-    // se pide en el primer toque en cualquier parte de la pantalla
-    faltaPermiso = true;
-    pintarPista();
-    const pedirPermiso = async () => {
-      document.removeEventListener('touchend', pedirPermiso);
-      document.removeEventListener('click', pedirPermiso);
-      if(giroActivo) return;
-      tPermiso = Date.now();
-      faltaPermiso = false;
-      try{
-        const p = await DeviceOrientationEvent.requestPermission();
-        if(p !== 'granted') sinGiro = true;
-      }catch(err){ sinGiro = true; }
-      pintarPista();
-    };
-    document.addEventListener('touchend', pedirPermiso);
-    document.addEventListener('click', pedirPermiso);
-  }else{
-    setTimeout(() => { if(!giroActivo){ sinGiro = true; pintarPista(); } }, 2000);
-  }
-}
 </script>
 </body>
 </html>

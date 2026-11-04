@@ -204,20 +204,68 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      gap: 22px;
-      padding: 44px 36px;
+      gap: 14px;
+      padding: 32px 28px;
     }
 
-    .t-marca .logo {
-      width: min(240px, 100%);
+    .capas-escritorio {
+      position: relative;
+      width: 100%;
+      height: 250px;
     }
 
-    .lema {
-      font-family: var(--serif);
-      font-size: 17px;
-      line-height: 1.4;
-      color: var(--acento);
-      transition: opacity .18s ease;
+    .capa-escritorio {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 94%;
+      border: 1px solid rgba(216, 191, 124, .42);
+      border-radius: 9px;
+      background: linear-gradient(145deg, rgba(33, 59, 91, .98), rgba(12, 28, 54, .98));
+      box-shadow: 0 10px 20px rgba(0, 0, 0, .24), inset 0 1px rgba(255, 255, 255, .08);
+    }
+
+    .capa-logo-escritorio {
+      top: 0;
+      left: 3%;
+      height: 53%;
+      z-index: 3;
+      transform: rotate(-2deg) translateZ(20px);
+    }
+
+    .capa-logo-escritorio .logo {
+      width: min(150px, 70%);
+    }
+
+    .capa-es-escritorio,
+    .capa-en-escritorio {
+      min-height: 28%;
+      padding: 8px 12px;
+    }
+
+    .capa-es-escritorio {
+      top: 40%;
+      left: 0;
+      z-index: 2;
+      transform: rotate(1.5deg) translateZ(10px);
+    }
+
+    .capa-en-escritorio {
+      top: 69%;
+      left: 4%;
+      z-index: 1;
+      transform: rotate(-1deg);
+    }
+
+    .capa-escritorio .capa-etiqueta {
+      font-size: 8px;
+    }
+
+    .capa-escritorio .capa-frase-es,
+    .capa-escritorio .capa-frase-en {
+      font-size: 13px;
     }
 
     .t-datos {
@@ -228,8 +276,7 @@
       gap: 18px;
     }
 
-    .cambiando .filas,
-    .cambiando .lema {
+    .cambiando .filas {
       opacity: 0;
     }
 
@@ -929,8 +976,19 @@
   <!-- ========== PC ========== -->
   <main class="tarjeta" id="tarjeta">
     <section class="t-marca">
-      <div class="logo" role="img" aria-label="Grupo Carma Abogados &amp; Contadores"></div>
-      <p class="lema" id="d-lema"></p>
+      <div class="capas-escritorio">
+        <div class="capa-escritorio capa-logo-escritorio">
+          <div class="logo" role="img" aria-label="Grupo Carma Abogados &amp; Contadores"></div>
+        </div>
+        <div class="capa-escritorio capa-es-escritorio" lang="es">
+          <span class="capa-etiqueta">Español</span>
+          <p class="capa-frase-es">Su seguridad, nuestro compromiso</p>
+        </div>
+        <div class="capa-escritorio capa-en-escritorio" lang="en">
+          <span class="capa-etiqueta">English</span>
+          <p class="capa-frase-en">Your security, our commitment</p>
+        </div>
+      </div>
       <div class="redes" data-redes></div>
     </section>
     <section class="t-datos">
@@ -1088,7 +1146,6 @@
     function pintarDesktop(idioma) {
       const t = textos[idioma];
       llenar(tarjeta, t);
-      document.getElementById('d-lema').textContent = t.lema;
       document.documentElement.lang = idioma;
       marcarIdioma(idioma);
     }

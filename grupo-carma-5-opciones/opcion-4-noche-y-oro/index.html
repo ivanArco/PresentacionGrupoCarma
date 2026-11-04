@@ -1064,8 +1064,8 @@
   </div>
 
 
-  <script>
-    /* ================= DATOS (edita aquí) ================= */
+ <script>
+         /* ================= DATOS (edita aquí) ================= */
     const redes = { whatsapp: "#", facebook: "#", instagram: "#", linkedin: "#" };
 
     const textos = {
@@ -1172,14 +1172,7 @@
       });
     }
 
-    /* ================= MÓVIL =================
-       La tarjeta sigue la inclinación del teléfono.
-       Anverso -> (inclinar) -> se voltea y aparecen las burbujas -> (tocar) -> contacto.
-       En el contacto, inclinar a la izquierda = español, a la derecha = inglés. */
-    const UMBRAL = 30;   // grados de inclinación para voltear o cambiar de idioma
-    const CENTRO = 12;   // grados para considerar el celular "derecho"
-    const CERCA = 12;   // grados para resaltar la burbuja de ese lado
-
+    /* ================= MÓVIL ================= */
     const inclina = document.getElementById('inclina');
     const carta = document.getElementById('carta');
     const portada = document.getElementById('portada');
@@ -1192,18 +1185,15 @@
     let estado = 'portada';       // portada | selector | contacto
     let sentido = 1;              // hacia qué lado se volteó la tarjeta
     let idiomaMovil = null;
-    let esperarCentro = false;    // espera a que el celular se enderece antes de reaccionar
+    let esperarCentro = false;    
     let cambiando = false;
 
     document.getElementById('m-filas').append(clonar('tpl-filas'));
     ponerRedes(contacto);
 
-    const anguloBase = () => estado === 'portada' ? 0 : 180 * sentido;
-
     function aplicar() {
       carta.style.transform = `rotateY(${anguloBase()}deg)`;
       portada.inert = estado !== 'portada';
-      selector.inert = estado !== 'selector';
       contacto.inert = estado !== 'contacto';
       selector.classList.toggle('visible', estado === 'selector');
       contacto.classList.toggle('visible', estado === 'contacto');
@@ -1224,20 +1214,31 @@
       estado = 'portada';
       aplicar();
       marcarCerca(null);
+      vibrar();
     }
 
     function elegir(idioma) {
       idiomaMovil = idioma;
       llenar(contacto, textos[idioma]);
       contacto.lang = idioma;
-      esperarCentro = true;   // que la inclinación actual no cambie el idioma recién elegido
+      esperarCentro = true;   
       estado = 'contacto';
       aplicar();
       marcarCerca(null);
     }
 
-    /* Cambia de idioma dando la vuelta completa a la tarjeta: el texto se
-       sustituye cuando la tarjeta está de canto y no se ve */
+    function elegirDirecto(idioma) {
+      idiomaMovil = idioma;
+      llenar(contacto, textos[idioma]);
+      contacto.lang = idioma;
+      esperarCentro = true;
+      estado = 'contacto'; 
+      aplicar();
+      marcarCerca(null);
+      vibrar();
+    }
+
+    /* Cambia de idioma dando la vuelta completa a la tarjeta */
     function cambiarIdiomaMovil(idioma, giro) {
       if (idioma === idiomaMovil || cambiando) return;
       vibrar();
@@ -1256,130 +1257,88 @@
       };
     }
 
-    function marcarCerca(idioma) {
-      Object.entries(burbujas).forEach(([k, b]) => b.classList.toggle('cerca', k === idioma));
+    /* ---------- Control Táctil por Lados e Idiomas ---------- */
+    let x0 = null, y0 = null;
+    const escena = document.getElementById('escena');
+
+    escena.addEventListener('touchstart', e => { 
+      x0 = e.touches[0].clientX; 
+      y0 = e.touches[0].clientY; 
+    }, { passive: true });
+
+    escena.addEventListener('touchend', e => {
+      if (x0 === null) return;
+      
+      const x1 = e.changedTouches[0].clientX;
+      const y1 = e.changedTouches[0].clientY;
+      const dx = x1 - x0;
+      const dy = y1 - y0;
+      x0 = null;
+
+      // 1. Si el usuario realiza un DESLIZAMIENTO (Swipe) horizontal:
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        const haciaDerecha = dx > 0;
+        if (estado === 'portada') {
+          voltear(haciaDerecha ? 1 : -1);
+        } else if (estado === 'contacto') {
+          cambiarIdiomaMovil(haciaDerecha ? 'es' : 'en', haciaDerecha ? -1 : 1);
+        }
+        return; 
+      }
+
+      // 2. Si es un TOQUE SIMPLE (Tap):
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+        // Obtenemos dimensiones basándonos en la tarjeta visible actualmente
+        const elementoActivo = estado === 'portada' ? portada : dorso;
+        const dimensiones = elementoActivo.getBoundingClientRect();
+        const puntoDelToque = x1 - dimensiones.left;
+        const mitad = dimensiones.width / 2;
+        const ladoTocado = puntoDelToque < mitad ? 'es' : 'en';
+
+        if (estado === 'portada') {
+          // Si está en la portada, va directo al idioma del lado presionado
+          sentido = ladoTocado === 'es' ? -1 : 1;
+          elegirDirecto(ladoTocado);
+        } else if (estado === 'contacto') {
+          // Si está en los datos y toca el lado correspondiente al idioma activo, regresa al logo
+          if (ladoTocado === idiomaMovil) {
+            aPortada();
+          } else {
+            // Si toca el lado opuesto, cambia de idioma con animación de giro
+            cambiarIdiomaMovil(ladoTocado, ladoTocado === 'es' ? -1 : 1);
+          }
+        }
+      }
+    }, { passive: true });
+
+    /* ---------- Lógica Auxiliar de Estado y Renderizado ---------- */
+    function anguloBase() {
+      return estado === 'portada' ? 0 : 180 * sentido;
     }
 
-    Object.values(burbujas).forEach(b => b.addEventListener('click', () => elegir(b.dataset.elegir)));
+    function marcarCerca(idioma) {
+      Object.entries(burbujas).forEach(([k, b]) => {
+        b.classList.toggle('cerca', k === idioma);
+      });
+    }
+
+    Object.values(burbujas).forEach(b => {
+      b.addEventListener('click', () => elegir(b.dataset.elegir));
+    });
+    
     document.getElementById('a-portada').addEventListener('click', aPortada);
     document.getElementById('c-volver').addEventListener('click', () => {
-      estado = 'selector';
-      aplicar();
+      aPortada(); 
     });
 
     /* ---------- Texto de ayuda bajo la tarjeta ---------- */
     const pista = document.getElementById('pista');
-    let giroActivo = false;      // ya se recibieron datos del giroscopio
-    let sinGiro = false;         // el dispositivo no los entrega
-    let faltaPermiso = false;    // iPhone: falta tocar para pedir permiso
+    let giroActivo = false;      
+    let sinGiro = false;         
+    let faltaPermiso = false;    
 
-    function pintarPista() {
-      let txt;
-      if (estado === 'selector') {
-        txt = 'Toca una bandera · Tap a flag';
-      } else if (estado === 'contacto') {
-        txt = giroActivo ? 'Inclina para cambiar de idioma · Tilt to switch'
-          : 'Desliza para cambiar de idioma · Swipe to switch';
-      } else if (faltaPermiso) {
-        txt = 'Toca aquí para activar el giroscopio';
-      } else {
-        txt = sinGiro ? 'Desliza o toca para voltear la tarjeta'
-          : 'Inclina tu teléfono para voltear la tarjeta';
-      }
-      document.getElementById('pista-txt').textContent = txt;
-    }
 
-    /* ---------- Deslizar con el dedo (por si no hay giroscopio) ---------- */
-    let x0 = null, y0 = null;
-    const escena = document.getElementById('escena');
-    escena.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
-    escena.addEventListener('touchend', e => {
-      if (x0 === null) return;
-      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
-      x0 = null;
-      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;   // no fue un deslizamiento horizontal
-      const haciaDerecha = dx > 0;
-      if (estado === 'portada') voltear(haciaDerecha ? 1 : -1);
-      else if (estado === 'selector') aPortada();
-      else cambiarIdiomaMovil(haciaDerecha ? 'es' : 'en', haciaDerecha ? 1 : -1);
-    }, { passive: true });
-
-    /* ---------- Giroscopio ---------- */
-    const limitar = (v, m) => Math.max(-m, Math.min(m, v));
-
-    function alInclinar(e) {
-      if (e.gamma === null) return;
-      if (!giroActivo) {
-        giroActivo = true;
-        faltaPermiso = false;
-        inclina.classList.remove('sin-giro');
-        pintarPista();
-      }
-      const g = e.gamma; // izquierda = negativo, derecha = positivo
-      const b = e.beta === null ? 45 : e.beta;
-
-      // La tarjeta sigue la mano en todo momento
-      if (!sinMovimiento) {
-        const ry = limitar(g, 30) * .45, rx = limitar(b - 45, 30) * -.35;
-        inclina.style.transform = `rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg)`;
-        inclina.style.setProperty('--bx', (50 + limitar(g, 30) * 1.5).toFixed(0) + '%');
-        inclina.style.setProperty('--by', (50 + limitar(b - 45, 30) * 1.5).toFixed(0) + '%');
-      }
-
-      if (esperarCentro) {
-        if (Math.abs(g) < CENTRO) esperarCentro = false;
-        return;
-      }
-      if (estado === 'portada') {
-        if (g < -UMBRAL) voltear(1);
-        else if (g > UMBRAL) voltear(-1);
-      } else if (estado === 'selector') {
-        marcarCerca(g < -CERCA ? 'es' : g > CERCA ? 'en' : null);
-      } else {
-        if (g < -UMBRAL) cambiarIdiomaMovil('es', 1);
-        else if (g > UMBRAL) cambiarIdiomaMovil('en', -1);
-      }
-    }
-
-    const esMovil = window.matchMedia('(max-width:768px)').matches;
-    const pideIOS = typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function';
-    let tPermiso = 0;
-
-    pista.addEventListener('click', () => {
-      if (estado !== 'portada') return;
-      if (Date.now() - tPermiso < 800) return;   // este toque solo pedía el permiso
-      voltear(1);
-    });
-
-    aplicar();
-    if (esMovil) {
-      window.addEventListener('deviceorientation', alInclinar);
-
-      if (pideIOS) {
-        // iPhone: Apple solo entrega datos tras un toque, así que el permiso
-        // se pide en el primer toque en cualquier parte de la pantalla
-        faltaPermiso = true;
-        pintarPista();
-        const pedirPermiso = async () => {
-          document.removeEventListener('touchend', pedirPermiso);
-          document.removeEventListener('click', pedirPermiso);
-          if (giroActivo) return;
-          tPermiso = Date.now();
-          faltaPermiso = false;
-          try {
-            const p = await DeviceOrientationEvent.requestPermission();
-            if (p !== 'granted') sinGiro = true;
-          } catch (err) { sinGiro = true; }
-          pintarPista();
-        };
-        document.addEventListener('touchend', pedirPermiso);
-        document.addEventListener('click', pedirPermiso);
-      } else {
-        setTimeout(() => { if (!giroActivo) { sinGiro = true; pintarPista(); } }, 2000);
-      }
-    }
-  </script>
+ </script>
 </body>
 
 </html>
